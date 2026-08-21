@@ -1,6 +1,6 @@
 services:
   scratch:
-    image: ghcr.io/JCSimon1/scratch-server:latest
+    image: ghcr.io/jcsimon1/scratch-server:latest
     container_name: scratch
     ports:
       - "8601:80"

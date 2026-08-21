@@ -1,0 +1,7 @@
+services:
+  scratch:
+    image: ghcr.io/DEIN-GITHUB-USER/scratch-server:latest
+    container_name: scratch
+    ports:
+      - "8601:80"
+    restart: unless-stopped

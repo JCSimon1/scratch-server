@@ -1,3 +1,24 @@
+<p align="middle">
+  <a href="https://github.com/JCSimon1/scratch-server/actions/workflows/build.yml" target="_blank">
+    <img src="https://github.com/JCSimon1/scratch-server/actions/workflows/build.yml/badge.svg" alt="Build Status">
+  </a>
+  <a href="https://github.com/JCSimon1/scratch-server/pkgs/container/scratch-server" target="_blank">
+    <img src="https://img.shields.io/badge/ghcr.io-scratch--server-2496ED?style=flat&logo=docker&logoColor=white" alt="GHCR Image">
+  </a>
+  <a href="https://github.com/scratchfoundation/scratch-editor" target="_blank">
+    <img src="https://img.shields.io/badge/Scratch-Editor-4D97FF?style=flat&logo=scratch&logoColor=white" alt="Scratch Editor">
+  </a>
+  <a href="https://nodejs.org" target="_blank">
+    <img src="https://img.shields.io/badge/Node.js-24-339933?style=flat&logo=node.js&logoColor=white" alt="Node.js 24">
+  </a>
+  <a href="https://nginx.org" target="_blank">
+    <img src="https://img.shields.io/badge/nginx-alpine-009639?style=flat&logo=nginx&logoColor=white" alt="nginx alpine">
+  </a>
+  <a href="LICENSE" target="_blank">
+    <img src="https://img.shields.io/badge/License-AGPL%20v3-blue.svg" alt="License: AGPL v3">
+  </a>
+</p>
+
 # Scratch Server (Self-Hosted)
 
 This repository provides a self-hosted [Scratch](https://scratch.mit.edu) 3.0
@@ -62,7 +83,7 @@ File: [`.github/workflows/build.yml`](.github/workflows/build.yml)
   target server)
 - Pushes the finished image to:
   ```
-  ghcr.io/<github-owner-lowercase>/scratch-server:latest
+  ghcr.io/jcsimon1/scratch-server:latest
   ```
 
 **Checking progress/result:** the **"Actions"** tab in the repository. A
@@ -101,9 +122,10 @@ services:
 - **`image`**: points to the image built by GitHub Actions in the GitHub
   Container Registry — **nothing is built locally**
   (no `build:` key needed)
-- **`ports`**: the editor is then reachable via port `8601` on the host
+- **`ports`**: the editor is then reachable via port `8601` on the host. This might be change based on preferences and available ports on the host - in case you are running multiple docker conntainers
 - **`restart: unless-stopped`**: the container automatically restarts
   after a server reboot
+- **`healthcheck`**: verifies if the web server is running correctly on port 80
 
 ---
 
@@ -114,6 +136,9 @@ Compose plugin installed):
 
 1. Get the repository files onto the server, e.g. via `git clone`:
    ```bash
+   # /opt/docker is the base folder used, i.e. you might change this to your preferences
+   cd /opt/docker/
+   mkdir -p scratch-server
    git clone https://github.com/JCSimon1/scratch-server.git
    cd scratch-server
    ```

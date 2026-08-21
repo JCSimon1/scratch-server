@@ -3,6 +3,11 @@ name: Build and push Scratch image
 on:
   push:
     branches: [main]
+    paths:
+      - 'Dockerfile'
+      - '.github/workflows/build.yml'
+  schedule:
+    - cron: '0 3 * * 2'
   workflow_dispatch: {}
 
 jobs:

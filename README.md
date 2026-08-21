@@ -45,8 +45,14 @@ File: [`.github/workflows/build.yml`](.github/workflows/build.yml)
 
 **What the workflow does:**
 
-- Runs automatically on every push to the `main` branch (or manually via
-  "Run workflow" in the Actions tab, thanks to `workflow_dispatch`)
+- Runs automatically when `Dockerfile` or the workflow file itself changes
+  on the `main` branch (changes to `docker-compose.yml`, `README.md`, etc.
+  do **not** trigger a build, since they don't affect the built image)
+- Runs automatically **every week** (Tuesdays at 03:00 UTC) via a
+  `schedule` trigger, to pick up the latest changes from the upstream
+  `scratch-editor` `main` branch even without any changes to this repo
+- Can also be triggered manually anytime via "Run workflow" in the Actions
+  tab, thanks to `workflow_dispatch`
 - Logs in to `ghcr.io` (GitHub Container Registry) using the
   automatically provided `GITHUB_TOKEN`
 - Converts the repository owner name to lowercase, since Docker image
@@ -62,6 +68,16 @@ File: [`.github/workflows/build.yml`](.github/workflows/build.yml)
 **Checking progress/result:** the **"Actions"** tab in the repository. A
 green checkmark means the image was built and published successfully.
 
+**Note:** since the `Dockerfile` doesn't pin a fixed version of
+`scratch-editor` (it clones the current upstream `main` branch on every
+build), an automatic build doesn't automatically mean your server is
+running the latest version. After a build completes, update the server
+by running:
+```bash
+docker compose pull
+docker compose up -d
+```
+
 ---
 
 ## 3. docker-compose.yml
@@ -74,6 +90,12 @@ services:
     ports:
       - "8601:80"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:80/"]
+      interval: 60s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
 ```
 
 - **`image`**: points to the image built by GitHub Actions in the GitHub

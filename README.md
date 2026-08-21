@@ -1,71 +1,66 @@
 # Scratch Server (Self-Hosted)
 
-Dieses Repository stellt einen selbstgehosteten [Scratch](https://scratch.mit.edu)-Editor
-(Scratch 3.0, aus dem offiziellen [scratch-editor](https://github.com/scratchfoundation/scratch-editor)-Repo
-der Scratch Foundation) als Docker-Container bereit.
+This repository provides a self-hosted [Scratch](https://scratch.mit.edu) 3.0
+editor, built from the Scratch Foundation's official
+[scratch-editor](https://github.com/scratchfoundation/scratch-editor)
+mono-repo, as a Docker container.
 
-Der Build läuft **nicht** auf dem Zielserver, sondern automatisiert über **GitHub Actions**.
-Das fertige, kleine Image (nur `nginx` + statische Dateien) wird zur GitHub Container Registry
-(`ghcr.io`) gepusht. Der Server muss das Image nur noch pullen und starten.
+The image is **not** built on the target server. Instead, it's built
+automatically via **GitHub Actions**. The finished, small image (just
+`nginx` + static files) is pushed to the GitHub Container Registry
+(`ghcr.io`). The server only needs to pull and start it — no compiling, no
+high RAM requirement on the server.
 
 ---
 
 ## 1. Dockerfile
 
-Das `Dockerfile` verwendet einen **Multi-Stage-Build**:
+The `Dockerfile` uses a **multi-stage build**:
 
-1. **Build-Stage (`node:24-bookworm`)**
-   - klont das offizielle `scratch-editor`-Mono-Repo
-   - installiert alle Workspace-Abhängigkeiten (`npm install`)
-   - baut **alle** Workspace-Pakete in der richtigen Reihenfolge (`npm run build`),
-     da `scratch-gui` von anderen Paketen im Repo abhängt (`scratch-storage`,
-     `scratch-vm`, `scratch-render`, `scratch-svg-renderer`, `scratch-paint`, ...),
-     die selbst erst aus TypeScript kompiliert werden müssen
-   - `NODE_OPTIONS="--max-old-space-size=..."` erhöht das Node-Heap-Limit, damit
-     der Build bei begrenztem RAM nicht mit "JavaScript heap out of memory" abbricht
+1. **Build stage (`node:24-bookworm`)**
+   - clones the official `scratch-editor` mono-repo
+   - installs all workspace dependencies (`npm install`)
+   - builds **all** workspace packages in the correct order (`npm run build`),
+     since `scratch-gui` depends on other packages in the repo
+     (`scratch-storage`, `scratch-vm`, `scratch-render`,
+     `scratch-svg-renderer`, `scratch-paint`, ...) that first need to be
+     compiled from TypeScript themselves
+   - `NODE_OPTIONS="--max-old-space-size=..."` raises the Node heap limit so
+     the build doesn't fail with "JavaScript heap out of memory" on
+     memory-constrained machines
 
-2. **Runtime-Stage (`nginx:alpine`)**
-   - kopiert ausschließlich den fertigen statischen Build
-     (`packages/scratch-gui/build`) in `/usr/share/nginx/html`
-   - Ergebnis: ein sehr kleines, schlankes Image ohne Node.js/Build-Tools
+2. **Runtime stage (`nginx:alpine`)**
+   - copies only the finished static build
+     (`packages/scratch-gui/build`) into `/usr/share/nginx/html`
+   - result: a small, lean image with no Node.js/build tools included
 
-Das Dockerfile muss lokal **nicht angepasst** werden – es wird ausschließlich
-von GitHub Actions verwendet.
+The Dockerfile does **not** need to be modified locally — it's used
+exclusively by GitHub Actions.
 
 ---
 
-## 2. GitHub Actions Workflow
+## 2. GitHub Actions workflow
 
-Datei: [`.github/workflows/build.yml`](.github/workflows/build.yml)
+File: [`.github/workflows/build.yml`](.github/workflows/build.yml)
 
-**Was der Workflow macht:**
+**What the workflow does:**
 
-- Läuft automatisch bei jedem Push auf den `main`-Branch (oder manuell über
-  "Run workflow" im Actions-Tab, dank `workflow_dispatch`)
-- Loggt sich mit dem automatisch bereitgestellten `GITHUB_TOKEN` bei
-  `ghcr.io` (GitHub Container Registry) ein
-- Wandelt den Repository-Besitzer-Namen in Kleinbuchstaben um, da
-  Docker-Image-Namen keine Großbuchstaben erlauben
-- Baut das Image gemäß `Dockerfile` auf einem GitHub-Runner (dort steht
-  ausreichend RAM/CPU zur Verfügung – der Build läuft nicht lokal oder auf
-  dem Zielserver)
-- Pusht das fertige Image nach:
+- Runs automatically on every push to the `main` branch (or manually via
+  "Run workflow" in the Actions tab, thanks to `workflow_dispatch`)
+- Logs in to `ghcr.io` (GitHub Container Registry) using the
+  automatically provided `GITHUB_TOKEN`
+- Converts the repository owner name to lowercase, since Docker image
+  names don't allow uppercase letters
+- Builds the image according to the `Dockerfile` on a GitHub runner (which
+  has enough RAM/CPU available — the build never runs locally or on the
+  target server)
+- Pushes the finished image to:
   ```
   ghcr.io/<github-owner-lowercase>/scratch-server:latest
   ```
 
-**Fortschritt/Ergebnis prüfen:** Tab **"Actions"** im Repository. Ein grüner
-Haken bedeutet, das Image wurde erfolgreich gebaut und veröffentlicht.
-
-**Package-Sichtbarkeit:** Neu erstellte Packages sind standardmäßig
-**privat**. Damit der Server das Image ohne Login pullen kann, entweder:
-
-- Package → *Package settings* → *Danger Zone* → *Change visibility* → **Public**, oder
-- auf dem Server einloggen:
-  ```bash
-  docker login ghcr.io -u <dein-github-username>
-  ```
-  (als Passwort einen Personal Access Token mit `read:packages`-Berechtigung verwenden)
+**Checking progress/result:** the **"Actions"** tab in the repository. A
+green checkmark means the image was built and published successfully.
 
 ---
 
@@ -81,54 +76,49 @@ services:
     restart: unless-stopped
 ```
 
-- **`image`**: verweist auf das von GitHub Actions gebaute Image in der
-  GitHub Container Registry – es wird **nichts lokal gebaut**
-  (kein `build:` Schlüssel mehr nötig)
-- **`ports`**: Editor ist danach über Port `8601` des Hosts erreichbar
-- **`restart: unless-stopped`**: Container startet automatisch nach einem
-  Server-Neustart neu
+- **`image`**: points to the image built by GitHub Actions in the GitHub
+  Container Registry — **nothing is built locally**
+  (no `build:` key needed)
+- **`ports`**: the editor is then reachable via port `8601` on the host
+- **`restart: unless-stopped`**: the container automatically restarts
+  after a server reboot
 
 ---
 
-## 4. Installation und Start des Containers
+## 4. Installing and starting the container
 
-Auf dem Zielserver (z. B. Ubuntu-Server mit installiertem Docker & Docker
-Compose Plugin):
+On the target server (e.g. an Ubuntu server with Docker & the Docker
+Compose plugin installed):
 
-1. Repository-Dateien auf den Server bringen, z. B. per `git clone`:
+1. Get the repository files onto the server, e.g. via `git clone`:
    ```bash
    git clone https://github.com/JCSimon1/scratch-server.git
    cd scratch-server
    ```
 
-2. Falls das GitHub-Package **privat** ist, einmalig einloggen:
-   ```bash
-   docker login ghcr.io -u <dein-github-username>
-   ```
-
-3. Container starten:
+2. Start the container:
    ```bash
    docker compose up -d
    ```
-   Es wird lediglich das fertige Image gepullt und gestartet – kein Build,
-   kaum RAM-Bedarf.
+   This simply pulls and starts the finished image — no build step, minimal
+   RAM usage.
 
-4. Im Browser aufrufen:
+3. Open in your browser:
    ```
    http://<server-ip>:8601
    ```
 
-### Aktualisieren auf eine neuere Version
+### Updating to a newer version
 
-Sobald ein neuer Commit auf `main` gepusht wurde und der Actions-Workflow
-erfolgreich durchgelaufen ist, auf dem Server:
+Once a new commit has been pushed to `main` and the Actions workflow has
+completed successfully, on the server:
 
 ```bash
 docker compose pull
 docker compose up -d
 ```
 
-### Container stoppen / entfernen
+### Stopping / removing the container
 
 ```bash
 docker compose down
@@ -136,9 +126,30 @@ docker compose down
 
 ---
 
-## Hinweise
+## Notes
 
-- Dies ist der reine Scratch-**Editor** (Offline-/Standalone-Modus). Es gibt
-  **keine** Benutzerkonten, keine Online-Community-Funktionen wie auf
-  scratch.mit.edu. Projekte werden lokal als `.sb3`-Datei ex-/importiert.
-- Basis-Repo: [scratchfoundation/scratch-editor](https://github.com/scratchfoundation/scratch-editor)
+- This is the plain Scratch **editor** (offline/standalone mode). There
+  are **no** user accounts and no online community features like on
+  scratch.mit.edu. Projects are imported/exported locally as `.sb3` files.
+- Upstream source: [scratchfoundation/scratch-editor](https://github.com/scratchfoundation/scratch-editor)
+
+---
+
+## License
+
+The upstream project this image is built from,
+[scratchfoundation/scratch-editor](https://github.com/scratchfoundation/scratch-editor),
+is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**
+(see [`LICENSE`](LICENSE) in this repository).
+
+The AGPL is a network-copyleft license: anyone who runs the software (or a
+modified version of it) as a publicly accessible network service must make
+the corresponding source code available to users of that service — this
+applies even if the code itself isn't distributed/downloaded.
+
+This repository does not modify the upstream Scratch source code itself; it
+only builds and packages it. The corresponding source code for the running
+service is the unmodified upstream repository linked above. If you do make
+changes to the Scratch source as part of your own deployment, you must make
+your modified source available to users of your instance as well, per the
+AGPL-3.0 terms.

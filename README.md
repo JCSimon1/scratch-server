@@ -111,6 +111,9 @@ services:
     ports:
       - "8601:80"
     restart: unless-stopped
+    mem_limit: 256m
+    mem_reservation: 128m
+    cpus: "1.0"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:80/"]
       interval: 60s
@@ -126,6 +129,18 @@ services:
 - **`restart: unless-stopped`**: the container automatically restarts
   after a server reboot
 - **`healthcheck`**: verifies if the web server is running correctly on port 80
+
+### Resource Limits
+
+The container serves only static files via Nginx. The Node.js build itself does not run on the target server but within GitHub Actions (see [GitHub Actions workflow](#2-github-actions-workflow)).
+Consequently, very few resources are required during operation. The limits
+defined in `docker-compose.yml` (`mem_limit`, `mem_reservation`, `cpus`) prevent the container from consuming unlimited host resources in the event of an error.
+
+Note: `deploy.resources.limits/reservations` (Swarm syntax) is ignored by
+`docker compose up` in standalone mode. Instead, the Compose V2 top-level
+keys `mem_limit`, `mem_reservation`, and `cpus` are used.
+
+Current values ​​can be checked and adjusted as needed using `docker stats scratch`.
 
 ---
 

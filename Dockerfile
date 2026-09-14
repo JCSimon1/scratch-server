@@ -1,8 +1,8 @@
-# --- Stage 1: Build ---
+# Build
 FROM node:24-bookworm AS builder
 
-# Native Build-Abhängigkeiten für node-canvas (wird von scratch-paint /
-# scratch-svg-renderer benötigt)
+# Native build dependencies for node-canvas (required by scratch-paint /
+# scratch-svg-renderer)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     python3 \
@@ -16,22 +16,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /src
 
-# Node-Heap-Limit erhöhen, damit der TypeScript/Webpack-Build bei wenig
-# RAM nicht mit "JavaScript heap out of memory" abbricht
+# Increase the Node heap limit so the TypeScript/Webpack build doesn't
+# crash with "JavaScript heap out of memory" when RAM is low.
 ENV NODE_OPTIONS="--max-old-space-size=2560"
 
-# Aktuelles Scratch-Editor-Mono-Repo klonen (offizielles Repo der Scratch Foundation)
+# Clone the current Scratch Editor mono-repo (official Scratch Foundation repo)
 RUN git clone --depth 1 https://github.com/scratchfoundation/scratch-editor.git .
 
-# Workspace-weite Abhängigkeiten installieren (npm workspaces)
+# Install workspace-wide dependencies (npm workspaces)
 RUN npm install
 
-# Alle Workspace-Pakete in der richtigen Reihenfolge bauen (scratch-storage,
-# scratch-vm, scratch-render, ... werden von scratch-gui benötigt und müssen
-# vorher kompiliert sein). Landet am Ende in packages/scratch-gui/build.
+# Build all workspace packages in the correct order (scratch-storage,
+# scratch-vm, scratch-render, etc. are required by scratch-gui and must
+# be compiled beforehand). Ends up in packages/scratch-gui/build.
 RUN npm run build
 
-# --- Stage 2: Runtime ---
+# Runtime 
 FROM nginx:alpine
 
 COPY --from=builder /src/packages/scratch-gui/build /usr/share/nginx/html
